@@ -11,6 +11,17 @@
         touch-action: none;
         background-color: black;
     }
+    #wallpaper {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        display: none;
+        background-size: cover;
+        background-repeat: no-repeat;
+    }
     svg {
         position: absolute;
         top: 0;
@@ -29,15 +40,18 @@
 </head>
 
 <body>
+    <div id="wallpaper"></div>
     <svg id="app" xmlns="http://www.w3.org/2000/svg"></svg>
     <p id="log">LOG</p>
     <script>
         const params = new URLSearchParams(window.location.search);
         const ni = params.get('ni');
         const nj = params.get('nj');
+        const wp = params.get('wp');
         const NS = "http://www.w3.org/2000/svg";
         const NI = ni ? Number(ni) : 5;
         const NJ = nj ? Number(nj) : 5;
+        document.getElementById('wallpaper').style.backgroundImage = 'url(' + wp + ')';
         var svg = document.getElementById("app");
         var l, u;
         var points = [];
@@ -169,12 +183,6 @@
         init();
         handleResize();
         window.addEventListener('resize', handleResize);
-        window.addEventListener('mouseup', (event) => {
-            mouseDown = false;
-        });
-        window.addEventListener('touchend', (event) => {
-            mouseDown = false;
-        });
         function getRelativePosition(elem, event) {
             const rect = elem.getBoundingClientRect();
             const x = event.pageX - rect.left;
@@ -219,6 +227,12 @@
         function releaseRealTimeLine() {
             polyline.setAttribute('points', getPS());
         }
+        function unlock() {
+            if (wp) {
+                document.getElementById('app').style.display = 'none';
+                document.getElementById('wallpaper').style.display = 'block';
+            }
+        }
         window.addEventListener("mousedown", (event) => {
             log('MouseDown');
             event.preventDefault();
@@ -252,6 +266,7 @@
             if (!isMobile) {
                 releaseRealTimeLine();
                 track(event, 'orange');
+                if (mouseDown) unlock();
                 mouseDown = false;
             }
         })
@@ -290,6 +305,7 @@
             event = event.touches[0];
             track(event, 'orange');
             releaseRealTimeLine();
+            if (mouseDown) unlock();
             mouseDown = false;
         })
     </script>
