@@ -9,6 +9,7 @@
         -moz-touch-callout:none;
         -ms-touch-callout:none; */
         touch-action: none;
+        background-color: black;
     }
     svg {
         position: absolute;
@@ -75,9 +76,9 @@
                 this.cir.setAttribute('cx', this.getCX());
                 this.cir.setAttribute('cy', this.getCY());
                 this.cir.setAttribute('r', this.getR());
-                this.cir.setAttribute('stroke', 'black'); // red
+                this.cir.setAttribute('stroke', 'white'); // red
                 this.cir.setAttribute('stroke-width', this.getSW());
-                this.cir.setAttribute('fill', this.on ? 'lightgrey' : 'white'); // pink
+                this.cir.setAttribute('fill', this.on ? 'lightgrey' : 'black'); // pink
             }
             lineUpPath() {
                 if (lines.length === 0) {
@@ -130,7 +131,7 @@
             }
             polyline = document.createElementNS(NS, 'polyline');
             polyline.setAttribute('fill', 'none');
-            polyline.setAttribute('stroke', 'black'); // red
+            polyline.setAttribute('stroke', 'lightgray'); // red
             svg.appendChild(polyline);
         }
 
