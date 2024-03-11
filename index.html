@@ -47,11 +47,13 @@
         const params = new URLSearchParams(window.location.search);
         const ni = params.get('ni');
         const nj = params.get('nj');
-        const wp = params.get('wp');
+        const img = params.get('img');
+        const pw = params.get('pw');
+        const PW = pw ? pw.replace(' ', '') : '';
         const NS = "http://www.w3.org/2000/svg";
         const NI = ni ? Number(ni) : 5;
         const NJ = nj ? Number(nj) : 5;
-        document.getElementById('wallpaper').style.backgroundImage = 'url(' + wp + ')';
+        document.getElementById('wallpaper').style.backgroundImage = 'url(' + img + ')';
         var svg = document.getElementById("app");
         var l, u;
         var points = [];
@@ -149,7 +151,7 @@
             svg.appendChild(polyline);
         }
 
-        function handleResize () {
+        function handleResize() {
             w = window.innerWidth;
             h = window.innerHeight;
             if (h * (NJ + 1) < w * (NI + 1)) {
@@ -162,7 +164,7 @@
             }
             svg.setAttribute('width', w);
             svg.setAttribute('height', h);
-            polyline.setAttribute('stroke-width', u / 20);
+            polyline.setAttribute('stroke-width', u / 15);
             plot();
         }
 
@@ -228,7 +230,16 @@
             polyline.setAttribute('points', getPS());
         }
         function unlock() {
-            if (wp) {
+            var ans = '' 
+            for (var point of lines) {
+                ans += point.i + '.' + point.j + ',';
+            }
+            ans = ans.slice(0, ans.length-1);
+            console.log(ans);
+            if (img) {
+                if (PW) {
+                    if (ans !== PW) return;
+                }
                 document.getElementById('app').style.display = 'none';
                 document.getElementById('wallpaper').style.display = 'block';
             }
