@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<head>
+    <title>3D test</title>
+    <meta charset="utf-8">
+    <style>
+        #app {
+            display: flex;
+            flex-wrap: nowrap;
+        }
+        #canvas {
+            border: solid;
+            margin: 0.5em;
+        }
+        #pannel {
+            border: solid;
+            margin: 0.5em;
+            padding: 0.5em;
+            font-size: large;
+            width: 6em;
+        }
+        #hint {
+            /* display: flex;
+            flex-wrap: wrap;
+            width: 50em; */
+            display: grid;
+            grid-template-columns: 15em 15em 15em;
+        }
+        #hint p {
+            margin: 0.5em;
+        }
+        .key {
+            border: solid;
+            border-color: lightgrey;
+            border-radius: 0.2em;
+            padding: 0.2em;
+            margin: 0.4em;
+            background-color: lightgrey;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <canvas id="canvas" width="500" height="300"></canvas>
+        <div id="pannel">
+            <p>x = <span id="inf-x"></span></p>
+            <p>y = <span id="inf-y"></span></p>
+            <p>z = <span id="inf-z"></span></p>
+            <p>θ = <span id="inf-t"></span>°</p>
+            <p>φ = <span id="inf-f"></span>°</p>
+            <p>d = <span id="inf-d"></span></p>
+        </div>
+    </div>
+    <div id="hint">
+        <p><span class="key">W</span>Move Forward</p>
+        <p><span class="key">S</span>Move Backward</p>
+        <p><span class="key">A</span>Move Leftward</p>
+        <p><span class="key">D</span>Move Rightward</p>
+        <p><span class="key">R</span>Move Upward</p>
+        <p><span class="key">F</span>Move Downward</p>
+        <p><span class="key">Space</span>Move Upward</p>
+        <p><span class="key">Shift</span>Move Downward</p>
+        <p><span class="key">Q</span>Zoom Out</p>
+        <p><span class="key">E</span>Zoom In</p>
+        <p><span class="key">↑</span>Turn Up</p>
+        <p><span class="key">↓</span>Turn Down</p>
+        <p><span class="key">←</span>Turn Left</p>
+        <p><span class="key">→</span>Turn Right</p>
+        <p><span class="key">Escape</span>Hide Hint</p>
+    </div>
+</body>
+
+<script>
+    const PI = Math.PI;
+    const SQRT2 = Math.sqrt(2);
+    vaddv = (v1, v2) => [
+        v1[0] + v2[0],
+        v1[1] + v2[1],
+        v1[2] + v2[2],
+    ];
+    vminv = (v1, v2) => [
+        v1[0] - v2[0],
+        v1[1] - v2[1],
+        v1[2] - v2[2],
+    ];
+    nmulv = (n, v2) => [
+        n * v2[0],
+        n * v2[1],
+        n * v2[2],
+    ];
+    mmulv = (m1, v2) => [
+        m1[0][0]*v2[0] + m1[0][1]*v2[1] + m1[0][2]*v2[2],
+        m1[1][0]*v2[0] + m1[1][1]*v2[1] + m1[1][2]*v2[2],
+        m1[2][0]*v2[0] + m1[2][1]*v2[1] + m1[2][2]*v2[2], 
+    ];
+    mmulm = (m1, m2) => [
+        [
+            m1[0][0]*m2[0][0] + m1[0][1]*m2[1][0] + m1[0][2]*m2[2][0],
+            m1[0][0]*m2[0][1] + m1[0][1]*m2[1][1] + m1[0][2]*m2[2][1],
+            m1[0][0]*m2[0][2] + m1[0][1]*m2[1][2] + m1[0][2]*m2[2][2],
+        ],
+        [
+            m1[1][0]*m2[0][0] + m1[1][1]*m2[1][0] + m1[1][2]*m2[2][0],
+            m1[1][0]*m2[0][1] + m1[1][1]*m2[1][1] + m1[1][2]*m2[2][1],
+            m1[1][0]*m2[0][2] + m1[1][1]*m2[1][2] + m1[1][2]*m2[2][2],
+        ],
+        [
+            m1[2][0]*m2[0][0] + m1[2][1]*m2[1][0] + m1[2][2]*m2[2][0],
+            m1[2][0]*m2[0][1] + m1[2][1]*m2[1][1] + m1[2][2]*m2[2][1],
+            m1[2][0]*m2[0][2] + m1[2][1]*m2[1][2] + m1[2][2]*m2[2][2],
+        ],
+    ];
+    vdotv = (v1, v2) => v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
+    vcrossv = (v1, v2) => [
+        v1[1] * v2[2] - v1[2] * v2[1],
+        v1[2] * v2[0] - v1[0] * v2[2],
+        v1[0] * v2[1] - v1[1] * v2[0],
+    ];
+    vmod2 = (v1) => v1[0]*v1[0] + v1[1]*v1[1] + v1[2]* v1[2];
+    vmod = (v1) => Math.sqrt(v1[0]*v1[0] + v1[1]*v1[1] + v1[2]* v1[2]);
+    mid = (x, i, s) => {
+        if (x < i) return i;
+        if (x > s) return s;
+        return x;
+    }
+    vneg = (v) => [
+        -v[0], -v[1], -v[2]
+    ];
+
+
+    const vzero = [0, 0, 0];
+
+    class Counter {
+        constructor(n=0) {
+            this.n = 0;
+        }
+        count() {
+            return this.n++;
+        }
+    };
+    var counter = new Counter(0);
+
+    class Timer {
+        constructor(t=0) {
+            this.t = t;
+        }
+        set(t=0) {
+            this.t = t;
+        }
+        start() {
+            let delay = Date.now() - this.t;
+            this.t = Date.now();
+            return delay;
+        }
+        isLongerthan(t) {
+            return Date.now() - this.t >= t;
+        }
+        get() {
+            return Date.now() - this.t;
+        }
+    };
+    var keyTimer = new Timer(0);
+    var plotTimer = new Timer(0);
+
+    class HashBucket {
+        constructor(n=8) {
+            this.n = n;
+            this.n2 = n * n;
+            this.n3 = n * n * n;
+            this.data = [];
+            for (let i = 0; i < this.n3; i++) {
+                this.data[i] = [];
+            }
+        }
+        hash(x, y, z) {
+            let h = (x + this.n*y + this.n2*z) % (this.n3);
+            h = h < 0 ? h + this.n3 : h;
+            return h;
+        }
+        set(x, y, z) {
+            let h = this.hash(x, y, z);
+            for (let i in this.data[h]) {
+                if (this.data[h][i][0] === x
+                    && this.data[h][i][1] === y 
+                    && this.data[h][i][2] === z) {
+                    return false;
+                }
+            }
+            this.data[h].push([x, y, z]);
+            return true;
+        }
+        reset(x, y, z) {
+            let h = this.hash(x, y, z);
+            for (let i in this.data[h]) {
+                if (this.data[h][i][0] === x
+                    && this.data[h][i][1] === y 
+                    && this.data[h][i][2] === z) {
+                    this.data[h].splice(i, 1);
+                    return true;
+                }
+            }
+            return false;
+        }
+        test(x, y, z) {
+            let h = this.hash(x, y, z);
+            for (let i in this.data[h]) {
+                if (this.data[h][i][0] === x
+                    && this.data[h][i][1] === y 
+                    && this.data[h][i][2] === z) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
+
+    var hashbucket = new HashBucket(16);
+
+    class Observer {
+        constructor(p=[0,0,0], s=[0,0], d=200) {
+            this.p_speed = 0.1*2;
+            this.s_speed = PI/180*2;
+            this.p = p;
+            this.t = s[0];
+            this.f = s[1];
+            this.d = d;
+            this.maxd2 = 32 * 32;
+            this.update_mt();
+            this.update_mr();
+        }
+        update_mt() {
+            this.mt = [
+                -this.p[0],
+                -this.p[1],
+                -this.p[2],
+            ];
+        }
+        update_mr() {
+            let mrt = [
+                [ Math.cos(this.t), Math.sin(this.t), 0],
+                [-Math.sin(this.t), Math.cos(this.t), 0],
+                [                0,                0, 1],
+            ];
+            let mrf = [
+                [ Math.cos(this.f), 0, Math.sin(this.f)],
+                [                0, 1,                0],
+                [-Math.sin(this.f), 0, Math.cos(this.f)],
+            ];
+            let mrfr = [
+                [Math.cos(this.f), 0, -Math.sin(this.f)],
+                [               0, 1,                 0],
+                [Math.sin(this.f), 0,  Math.cos(this.f)],
+            ];
+            let mrtr = [
+                [Math.cos(this.t), -Math.sin(this.t), 0],
+                [Math.sin(this.t),  Math.cos(this.t), 0],
+                [                0,                0, 1],
+            ];
+            this.mr = mmulm(mrf, mrt);
+            // this.mrr = mmulm(mrtr, mrfr);
+            this.mrr = mrtr;
+        }
+        getTranslatedPos = (p) => vaddv(p, this.mt);
+        getRotatedPos = (p) => mmulv(this.mr, p);
+        getCartesianPos = (p) => mmulv(this.mr, vaddv(p, this.mt));
+        getProjectedPos = (p) => nmulv(this.d/p[0], p);
+        move(p) {
+            let np = vaddv(this.p, mmulv(this.mrr, nmulv(this.p_speed, p)));
+            if (!hashbucket.test(Math.floor(np[0]), Math.floor(np[1]), Math.floor(np[2]))) {
+                this.p = np;
+                this.update_mt();
+            }
+        }
+        rotate(s) {
+            this.t += s[0] * this.s_speed;
+            this.f += s[1] * this.s_speed;
+            this.f = this.f > PI/2 ? PI/2 : this.f;
+            this.f = this.f < -PI/2 ? -PI/2 : this.f;
+            this.update_mr();
+        }
+        zoom(dr) {
+            this.d *= dr;
+        }
+    };
+
+    class Plane {
+        constructor(p0, norm) {
+            this.p0 = p0;
+            this.norm = norm;
+        }
+        dotn(p) {
+            return vdotv(vminv(p, this.p0), this.norm);
+        }
+    }
+
+    class Surface {
+        constructor(vertexs, orient, color="lightblue", id=undefined) {
+            this.orient = orient;
+            this.id = id === undefined ? counter.count() : id;
+            this.color = color;
+            this.updateVertexs(vertexs);
+        }
+        prev = (i) => i===0 ? this.n-1 : i-1;
+        next = (i) => i===this.n-1 ? 0 : i+1;
+        updateVertexs(vertexs) {
+            this.v = vertexs;
+            this.n = this.v.length;
+            this.e = [];
+            if (this.n > 1) this.updateEdges();
+        }
+        updateEdges() {
+            this.e = [];
+            for (let i = 0; i < this.n - 1; i++) {
+                this.e.push(vminv(this.v[i+1], this.v[i]));
+            }
+            this.e.push(vminv(this.v[0], this.v[this.n-1]));
+        }
+        transform(func) {
+            for (let i in this.v) {
+                this.v[i] = func(this.v[i]);
+            }
+            this.updateEdges();
+        }
+        updateDistanceFast(p) {
+            let v = this.v[0];
+            let e1 = this.e[0];
+            let e2 = vneg(this.e[this.n-1]);
+            let foot = [...p];
+            foot[this.orient] = v[this.orient];
+            let mpe1 = vdotv(vminv(foot, v), e1);
+            let mpe2 = vdotv(vminv(foot, v), e2);
+            mpe1 = mid(mpe1, 0, 1);
+            mpe2 = mid(mpe2, 0, 1);
+            foot = vaddv(v, vaddv(nmulv(mpe1/vmod2(e1), e1), nmulv(mpe2/vmod2(e2), e2)));
+            this.d2 = vmod2(vminv(foot, p));
+            return this.d;
+        }
+        updateDistance(p) {
+            let norm = vcrossv(this.e[0], this.e[this.n-1]);
+            let pd = vdotv(vminv(p, this.v[0]), norm);
+            let pp = vaddv(p, nmulv(pd/vmod2(norm), norm));
+            let im = 0;
+            let dm = vmod2(vminv(this.v[0], pp));
+            for (let i = 1; i < this.n; i++) {
+                let d = vmod2(vminv(this.v[i], pp));
+                if (d < dm) {
+                    im = i;
+                    dm = d;
+                }
+            }
+            let pi = this.v[im];
+            let pip = vminv(pp, pi);
+            let e1 = vneg(this.e[this.prev(im)]);
+            let e2 = this.e[im];
+            let e1p = vdotv(pip, e1);
+            let e2p = vdotv(pip, e2);
+            if (e1p < 0 && e2p < 0) {
+                pp = pi;
+            }
+            else if (e1p >= 0 && e2p < 0) {
+                pp = vaddv(pi, nmulv(e1p/vmod2(e1), e1));
+            }
+            else if (e1p < 0 && e2p >= 0) {
+                pp = vaddv(pi, nmulv(e2p/vmod2(e2), e2));
+            }
+            this.d2 = vmod2(vminv(p, pp));
+        }
+        trim(plane) {
+            if (this.n < 3) return;
+            let trimmedv = [];
+            for (let i = 0; i < this.n; i++) {
+                let vi = this.v[i];
+                let vdotn = plane.dotn(vi)
+                if (vdotn >= 0) {
+                    trimmedv.push(vi);
+                }
+                else {
+                    let v1 = this.v[this.prev(i)];
+                    let v2 = this.v[this.next(i)];
+                    if (plane.dotn(v1) >= 0) {
+                        let e1 = vneg(this.e[this.prev(i)]);
+                        let l = -vdotn / vdotv(e1, plane.norm);
+                        trimmedv.push(vaddv(vi, nmulv(l, e1)));
+                    }
+                    if (plane.dotn(v2) >= 0) {
+                        let e2 = this.e[i];
+                        let l = -vdotn / vdotv(e2, plane.norm);
+                        trimmedv.push(vaddv(vi, nmulv(l, e2)));
+                    }
+                }
+            }
+            // console.log(this.id, [...this.v], [...trimmedv]);
+            this.updateVertexs(trimmedv);
+        }
+        getCopy() {
+            return new Surface([...this.v], this.orient, this.color, this.id);
+        }
+    }
+
+    class Cube {
+        constructor(pbld, color="lightblue", id=undefined) {
+            this.id = id === undefined ? counter.count() : id;
+            this.color = color;
+            this.x = pbld[0];
+            this.y = pbld[1];
+            this.z = pbld[2];
+            hashbucket.set(this.x, this.y, this.z);
+            this.pbld = [this.x  , this.y  , this.z  ];
+            this.pfld = [this.x+1, this.y  , this.z  ];
+            this.pbrd = [this.x  , this.y+1, this.z  ];
+            this.pblu = [this.x  , this.y  , this.z+1];
+            this.pfrd = [this.x+1, this.y+1, this.z  ];
+            this.pflu = [this.x+1, this.y  , this.z+1];
+            this.pbru = [this.x  , this.y+1, this.z+1];
+            this.pfru = [this.x+1, this.y+1, this.z+1];
+            this.fu = new Surface([this.pblu, this.pflu, this.pfru, this.pbru], 2, color);
+            this.fd = new Surface([this.pbld, this.pbrd, this.pfrd, this.pfld], 2, color);
+            this.ff = new Surface([this.pflu, this.pfld, this.pfrd, this.pfru], 0, color);
+            this.fb = new Surface([this.pblu, this.pbru, this.pbrd, this.pbld], 0, color);
+            this.fr = new Surface([this.pfru, this.pfrd, this.pbrd, this.pbru], 1, color);
+            this.fl = new Surface([this.pflu, this.pblu, this.pbld, this.pfld], 1, color);
+            // console.log(this);
+        }
+        // getVertexes = () => [
+        //     this.pbld, this.pfld, this.pbrd, this.pblu,
+        //     this.pfrd, this.pflu, this.pbru, this.pfru,
+        // ];
+        getSurfaces() {
+            let surfaces = [];
+            if (!hashbucket.test(this.x, this.y, this.z+1)) surfaces.push(this.fu.getCopy());
+            if (!hashbucket.test(this.x, this.y, this.z-1)) surfaces.push(this.fd.getCopy());
+            if (!hashbucket.test(this.x+1, this.y, this.z)) surfaces.push(this.ff.getCopy());
+            if (!hashbucket.test(this.x-1, this.y, this.z)) surfaces.push(this.fb.getCopy());
+            if (!hashbucket.test(this.x, this.y+1, this.z)) surfaces.push(this.fr.getCopy());
+            if (!hashbucket.test(this.x, this.y-1, this.z)) surfaces.push(this.fl.getCopy());
+            return surfaces;
+        }
+        getInfDist2(p) {
+            return vmod2(vminv(this.pbld, p)) - 3;
+        }
+    }
+
+    class Plotter {
+        constructor(observer, canvas) {
+            this.observer = observer;
+            this.canvas = canvas;
+            let boundingRect = canvas.getBoundingClientRect();
+            this.WIDTH = boundingRect.width;
+            this.CW = this.WIDTH / 2;
+            this.HEIGHT = boundingRect.height;
+            this.CH = this.HEIGHT / 2;
+            canvas.width = this.WIDTH;
+            canvas.height = this.HEIGHT;
+            this.visibleCone = [];
+        }
+
+        get2DPos(p) {
+            p = this.observer.getProjectedPos(p);
+            return [
+                - p[1] + this.CW,
+                - p[2] + this.CH
+            ];
+        }
+
+        get2DPoses(surface) {
+            let vs = [];
+            for (let v of surface.v) {
+                vs.push(this.get2DPos(v));
+            }
+            return vs;
+        }
+
+        updateVisibleCone() {
+            this.visibleCone = [
+                new Plane(vzero, [this.CW, -observer.d, 0]),
+                new Plane(vzero, [this.CW,  observer.d, 0]),
+                new Plane(vzero, [this.CH, 0, -observer.d]),
+                new Plane(vzero, [this.CH, 0,  observer.d]),
+            ];
+        }
+
+        plot(objs) {
+            let plot_inf = {
+                t_load: 0,
+                t_tran: 0,
+                t_dist: 0,
+                t_sort: 0,
+                t_trim: 0,
+                t_plot: 0,
+                n_surf: 0,
+                n_plot: 0,
+                n_face: objs.length * 6,
+                n_bloc: objs.length,
+            }
+
+            let ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, this.WIDTH, this.HEIGHT);
+            this.updateVisibleCone();
+            let surfaces = [];
+            plotTimer.start();
+            for (let obj of objs) {
+                if (obj.getInfDist2(observer.p) > observer.maxd2) continue;
+                surfaces = surfaces.concat(obj.getSurfaces());
+            }
+            plot_inf.t_load = plotTimer.start();
+            plot_inf.n_surf = surfaces.length;
+            for (let surface of surfaces) {
+                plotTimer.start();
+                surface.transform(observer.getCartesianPos);
+                plot_inf.t_tran += plotTimer.start();
+                surface.updateDistance(vzero);
+                plot_inf.t_dist += plotTimer.start();
+            }
+            plotTimer.start();
+            surfaces.sort((a, b) => b.d2 - a.d2);
+            plot_inf.t_sort = plotTimer.start();
+            for (let surface of surfaces) {
+                if (surface.d2 > observer.maxd2) continue;
+                plotTimer.start();
+                let isVisible = this.trim(surface);
+                plot_inf.t_trim += plotTimer.start();
+                if (isVisible && surface.n > 2) {
+                    plot_inf.n_plot++;
+                    this.plotSurface(surface);
+                }
+                plot_inf.t_plot += plotTimer.start();
+            }
+            console.log(plot_inf);
+        }
+
+        trim(surface) {
+            let isF = true;
+            let isB = true;
+            let isL = true;
+            let isR = true;
+            let isU = true;
+            let isD = true;
+            for (let v of surface.v) {
+                let isLt = false;
+                let isRt = false;
+                let isUt = false;
+                let isDt = false;
+                let isBt = false;
+                if (v[0] < 0) {
+                    isBt = true;
+                }
+                if (v[0] !== 0) {
+                    v = this.observer.getProjectedPos(v);
+                    let y = v[1];
+                    let z = v[2];
+                    if (y < -this.CW) isLt = true;
+                    if (y >  this.CW) isRt = true;
+                    if (z < -this.CH) isDt = true;
+                    if (z >  this.CH) isUt = true;
+                }
+                isF &&= !(isLt || isRt || isDt || isUt || isBt);
+                isB &&= isBt;
+                isL &&= isLt ^ isBt;
+                isR &&= isRt ^ isBt;
+                isD &&= isDt ^ isBt;
+                isU &&= isUt ^ isBt;
+            }
+            if (isF) return true;
+            if (isL || isR || isD || isU || isB) return false;
+            for (let plane of this.visibleCone) {
+                surface.trim(plane);
+            }
+            return true;
+        }
+
+        plotSurface(surface) {
+            let ps = this.get2DPoses(surface);
+            let n = ps.length;
+            if (n < 3) return;
+            let ctx = canvas.getContext("2d");
+            ctx.beginPath();
+            ctx.moveTo(ps[0][0], ps[0][1]);
+            for (let i = 1; i < n; i++) {
+                ctx.lineTo(ps[i][0], ps[i][1]);
+            }
+            ctx.closePath();
+            ctx.fillStyle = surface.color;
+            ctx.strokeStyle = 'black';
+            ctx.stroke();
+            ctx.fill();
+        }
+    }
+
+    function updateInfo() {
+        document.getElementById('inf-x').innerHTML = Math.round(observer.p[0] * 100) / 100;
+        document.getElementById('inf-y').innerHTML = Math.round(observer.p[1] * 100) / 100;
+        document.getElementById('inf-z').innerHTML = Math.round(observer.p[2] * 100) / 100;
+        document.getElementById('inf-t').innerHTML = Math.round(observer.t / PI * 180);
+        document.getElementById('inf-f').innerHTML = Math.round(observer.f / PI * 180);
+        document.getElementById('inf-d').innerHTML = Math.round(observer.d * 100) / 100;
+    }
+
+    document.addEventListener('keydown', function(event) {
+        if (!keyTimer.isLongerthan(100)) return;
+        keyTimer.start();
+        console.log(event.key);
+        switch (event.key) {
+            case 'w':
+                observer.move([1, 0, 0]);
+                break;
+            case 's':
+                observer.move([-1, 0, 0]);
+                break;
+            case 'a':
+                observer.move([0, 1, 0]);
+                break;
+            case 'd':
+                observer.move([0, -1, 0]);
+                break;
+            case 'r':
+            case ' ':
+                observer.move([0, 0, 1]);
+                break;
+            case 'f':
+            case 'Shift':
+                observer.move([0, 0, -1]);
+                break;
+            case 'ArrowUp':
+                observer.rotate([0, 1]);
+                break;
+            case 'ArrowDown':
+                observer.rotate([0, -1]);
+                break;
+            case 'ArrowLeft':
+                observer.rotate([1, 0]);
+                break;
+            case 'ArrowRight':
+                observer.rotate([-1, 0]);
+                break;
+            case 'q':
+                observer.zoom(0.9);
+                break;
+            case 'e':
+                observer.zoom(1.1);
+                break;
+            case 'Escape':
+                document.getElementById("hint").style.display = "none";
+                break;
+            default:
+                return;
+        }
+        drawer.plot(blocks);
+        updateInfo();
+    });
+
+    document.addEventListener('keyup', function(event) {
+        keyTimer.set(0);
+    })
+
+    var observer = new Observer([5, 2.5, 1.75], [PI, 0]);
+    var drawer = new Plotter(observer, this.document.getElementById('canvas'));
+    var blocks = [];
+
+    function buildTree(xc, yc) {
+        for (let z = 0; z < 6; z++)
+            blocks.push(new Cube([xc, yc, z], "SaddleBrown"));
+        for (let z = 3; z < 5; z++)
+            for (let x = -2; x < 3; x++)
+                for (let y = -2; y < 3; y++)
+                    if (x || y)
+                        blocks.push(new Cube([xc+x, yc+y, z], "ForestGreen"));
+        for (let x = -1; x < 2; x++)
+            for (let y = -1; y < 2; y++)
+                if (x || y)
+                    blocks.push(new Cube([xc+x, yc+y, 5], "ForestGreen"));
+        for (let x = -1; x < 2; x++)
+            for (let y = -1; y < 2; y++)
+                if (!x || !y)
+                    blocks.push(new Cube([xc+x, yc+y, 6], "ForestGreen"));
+    }
+
+    buildTree(0, 0);
+    buildTree(8, 6);
+    buildTree(10, -7);
+    buildTree(-5, 9);
+    buildTree(-7, -9);
+    buildTree(14, 2);
+    buildTree(-12, -1);
+    buildTree(1, 11);
+    buildTree(2, -13);
+
+    const RADIUS = 32;
+
+    for (let x = -RADIUS; x <= RADIUS; x++) {
+        for (let y = -RADIUS; y <= RADIUS; y++) {
+            blocks.push(new Cube([x, y, -1], 'lightgrey'));
+            blocks.push(new Cube([x, y, -2], 'lightgrey'));
+            blocks.push(new Cube([x, y, -3], 'lightgrey'));
+            blocks.push(new Cube([x, y, -4], 'lightgrey'));
+            blocks.push(new Cube([x, y, -5], 'lightgrey'));
+        }
+    }
+
+    for (let i = 0; i < RADIUS; i++) {
+        let x = Math.floor(Math.random() * RADIUS * 2) - RADIUS;
+        let y = Math.floor(Math.random() * RADIUS * 2) - RADIUS;
+        if (!hashbucket.test(x, y, 0)) {
+            blocks.push(new Cube([x, y, 0], 'lightgrey'));
+        }
+    }
+
+    drawer.plot(blocks);
+    updateInfo();
+</script>
